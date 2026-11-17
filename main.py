@@ -1,4 +1,5 @@
 import os
+import sys
 
 # Oculta avisos innecesarios de GPU (Codespaces usa CPU)
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
@@ -65,6 +66,9 @@ train_ds, val_ds = keras.utils.image_dataset_from_directory(
     image_size=image_size,
     batch_size=batch_size,
 )
+
+# Rutas de las imágenes de validación (el modelo no entrena con ellas)
+val_file_paths = list(val_ds.file_paths)
 
 # Guardar gráfico 1: Primeras 9 imágenes
 plt.figure(figsize=(10, 10))
@@ -160,16 +164,26 @@ def make_model(input_shape, num_classes):
 
 model = make_model(input_shape=image_size + (3,), num_classes=2)
 
-keras.utils.plot_model(model, to_file="model.png", show_shapes=True)
-print("Guardado: model.png")
+# plot_model necesita pydot y graphviz; si faltan, se sigue sin el diagrama
+try:
+    keras.utils.plot_model(model, to_file="model.png", show_shapes=True)
+    print("Guardado: model.png")
+except ImportError as e:
+    print(f"No se generó model.png (falta pydot/graphviz): {e}")
 
 # ==========================================
 # 6. Compilación y entrenamiento
 # ==========================================
 # Nota: En CPU las 25 épocas pueden tardar bastante; si quieres probar rápido, cámbialo a 3 o 5
 epochs = 25
+# Guarda solo el modelo con mejor precisión en validación (no uno por época)
 callbacks = [
-    keras.callbacks.ModelCheckpoint("save_at_{epoch}.keras"),
+    keras.callbacks.ModelCheckpoint(
+        "mejor_modelo.keras",
+        monitor="val_acc",
+        mode="max",
+        save_best_only=True,
+    ),
 ]
 
 model.compile(
@@ -185,13 +199,21 @@ history = model.fit(
     validation_data=val_ds,
 )
 
+# Evaluación con el mejor modelo guardado sobre imágenes que no vio al entrenar
+model = keras.models.load_model("mejor_modelo.keras")
+val_loss, val_acc = model.evaluate(val_ds)
+print(f"Precisión en validación: {100 * val_acc:.2f}%")
+
 # ==========================================
 # 7. Inferencia con una imagen nueva
 # ==========================================
-test_img_path = "PetImages/Cat/6779.jpg"
-if not os.path.exists(test_img_path):
-    first_cat = sorted(os.listdir("PetImages/Cat"))[0]
-    test_img_path = os.path.join("PetImages/Cat", first_cat)
+# Se puede pasar una imagen propia: python main.py ruta/a/imagen.jpg
+# Si no, se usa una imagen del set de validación (no usada en el entrenamiento)
+if len(sys.argv) > 1:
+    test_img_path = sys.argv[1]
+else:
+    test_img_path = val_file_paths[0]
+print(f"Imagen de prueba: {test_img_path}")
 
 img = keras.utils.load_img(test_img_path, target_size=image_size)
 

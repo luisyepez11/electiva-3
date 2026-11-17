@@ -1,0 +1,5 @@
+tensorflow
+keras>=3
+numpy
+matplotlib
+pydot
