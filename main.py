@@ -14,6 +14,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 import keras
+import tensorflow as tf
 from keras import layers
 from tensorflow import data as tf_data
 
@@ -229,3 +230,55 @@ img_array = keras.ops.expand_dims(img_array, 0)
 predictions = model.predict(img_array)
 score = float(keras.ops.sigmoid(predictions[0][0]))
 print(f"Esta imagen es {100 * (1 - score):.2f}% gato y {100 * score:.2f}% perro.")
+
+
+# ==========================================
+# 8. Mapa de calor Grad-CAM
+# ==========================================
+def generar_gradcam(model, img_array, score):
+    pooling = next(
+        layer for layer in model.layers if isinstance(layer, layers.GlobalAveragePooling2D)
+    )
+    grad_model = keras.Model(model.inputs, [pooling.input, model.outputs[0]])
+    img_tensor = tf.convert_to_tensor(img_array)
+
+    with tf.GradientTape() as tape:
+        tape.watch(img_tensor)
+        mapas, logits = grad_model([img_tensor], training=False)
+        logit = logits[0, 0]
+        objetivo = logit if score >= 0.5 else -logit
+
+    gradientes = tape.gradient(objetivo, mapas)[0]
+    pesos = tf.reduce_mean(gradientes, axis=(0, 1))
+    heatmap = tf.nn.relu(tf.reduce_sum(mapas[0] * pesos, axis=-1))
+    return tf.math.divide_no_nan(heatmap, tf.reduce_max(heatmap)).numpy()
+
+
+def guardar_mapa_calor(img, heatmap, score, output_path="4_mapa_calor.png"):
+    heatmap = tf.image.resize(heatmap[..., None], image_size, method="bilinear")[..., 0]
+    clase = "Perro" if score >= 0.5 else "Gato"
+    confianza = score if score >= 0.5 else 1 - score
+
+    fig, ejes = plt.subplots(1, 3, figsize=(12, 4), layout="constrained")
+    ejes[0].imshow(img)
+    ejes[0].set_title("Imagen original")
+
+    mapa = ejes[1].imshow(heatmap, cmap="jet", vmin=0, vmax=1)
+    ejes[1].set_title("Mapa de calor (Grad-CAM)")
+    fig.colorbar(mapa, ax=ejes[1])
+
+    ejes[2].imshow(img)
+    ejes[2].imshow(heatmap, cmap="jet", vmin=0, vmax=1, alpha=0.45)
+    ejes[2].set_title("Superposición")
+
+    for eje in ejes:
+        eje.axis("off")
+
+    fig.suptitle(f"Predicción: {clase} ({confianza:.2%} de confianza)")
+    fig.savefig(output_path, bbox_inches="tight")
+    plt.close(fig)
+
+
+heatmap = generar_gradcam(model, img_array, score)
+guardar_mapa_calor(img, heatmap, score)
+print("Guardado: 4_mapa_calor.png")
