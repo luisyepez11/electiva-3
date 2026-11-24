@@ -2,9 +2,8 @@
 - Guaicaipuro Pinzones - 32.101.426
 - Luis Yepez - 31.562.660
 
-COLAB https://colab.research.google.com/drive/1nqtXfsHcEphpIOl3wytMSOUIlzvW8m2c?usp=sharing
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1ThFIjwPws5KdgB6ZPR2R0DMKfXxXENpw?usp=sharing)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)]( https://colab.research.google.com/drive/1nqtXfsHcEphpIOl3wytMSOUIlzvW8m2c?usp=sharing)
 
 [Abrir el cuaderno de Grad-CAM en Google Colab](https://colab.research.google.com/drive/1ThFIjwPws5KdgB6ZPR2R0DMKfXxXENpw?usp=sharing)
 
